@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: #ffffff;
+            color: #333;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        /* Password Screen */
+        .password-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.8s ease, visibility 0.8s ease;
+        }
+
+        .password-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .password-container {
+            text-align: center;
+        }
+
+        .password-container h1 {
+            font-size: 1.5rem;
+            font-weight: 300;
+            margin-bottom: 2rem;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: #333;
+        }
+
+        .password-input {
+            background: transparent;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            color: #333;
+            text-align: center;
+            letter-spacing: 0.2em;
+            width: 300px;
+            transition: border-color 0.3s ease;
+        }
+
+        .password-input:focus {
+            outline: none;
+            border-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .password-input::placeholder {
+            color: rgba(0, 0, 0, 0.3);
+        }
+
+        .password-error {
+            margin-top: 1rem;
+            color: #e74c3c;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .password-error.show {
+            opacity: 1;
+        }
+
+        .password-hint {
+            margin-top: 2rem;
+            font-size: 0.8rem;
+            color: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Gallery Container */
+        .gallery-container {
+            display: none;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .gallery-container.active {
+            display: block;
+        }
+
+        .gallery-container.can-drag {
+            cursor: grab;
+        }
+
+        .gallery-container.dragging {
+            cursor: grabbing;
+        }
+
+        /* Canvas for photos */
+        .photo-canvas {
+            position: absolute;
+            width: 300vw;
+            height: 300vh;
+            left: -100vw;
+            top: -100vh;
+            transition: none;
+        }
+
+        /* Individual photos */
+        .photo {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transition: none;
+            background: #f0f0f0;
+            will-change: transform;
+        }
+
+        .photo img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Message in center */
+        .center-message {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+
+        .center-message.visible {
+            opacity: 1;
+        }
+
+        .center-message h2 {
+            font-size: 3rem;
+            font-weight: 300;
+            margin-bottom: 1.5rem;
+            color: #333;
+            letter-spacing: 0.1em;
+        }
+
+        .center-message p {
+            font-size: 1.3rem;
+            line-height: 1.8;
+            max-width: 500px;
+            color: #666;
+        }
+
+        /* Scroll hint */
+        .scroll-hint {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            letter-spacing: 0.2em;
+            color: rgba(0, 0, 0, 0.3);
+            transition: opacity 0.5s ease;
+            text-transform: uppercase;
+        }
+
+        .scroll-hint.hidden {
+            opacity: 0;
+        }
+
+        /* Placeholder styling */
+        .placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #e0e0e0 0%, #f5f5f5 100%);
+            color: #999;
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .placeholder small {
+            margin-top: 0.5rem;
+            font-size: 0.7rem;
+            color: #bbb;
+        }
+    </style>
+</head>
+<body>
+    <!-- Password Screen -->
+    <div class="password-screen" id="passwordScreen">
+        <div class="password-container">
+            <h1>Enter Password</h1>
+            <input type="password" class="password-input" id="passwordInput" placeholder="..." autofocus>
+            <p class="password-error" id="passwordError">Incorrect password</p>
+            <p class="password-hint">Press Enter to submit</p>
+        </div>
+    </div>
+
+    <!-- Gallery -->
+    <div class="gallery-container" id="galleryContainer">
+        <div class="photo-canvas" id="photoCanvas">
+            <!-- Message revealed as photos disperse -->
+            <div class="center-message" id="centerMessage">
+                <h2>Thank You</h2>
+                <p>
+                    This is your special message. Edit this text to say whatever you'd like.
+                    It could be a love note, a memory, or anything meaningful to you.
+                </p>
+            </div>
+        </div>
+
+        <div class="scroll-hint" id="scrollHint">Scroll to explore</div>
+    </div>
+
+    <script>
+        // Configuration
+        const PASSWORD = 'paf';
+        const MAX_PHOTOS = 100; // Maximum number of photos to check for
+
+        // Elements
+        const passwordScreen = document.getElementById('passwordScreen');
+        const passwordInput = document.getElementById('passwordInput');
+        const passwordError = document.getElementById('passwordError');
+        const galleryContainer = document.getElementById('galleryContainer');
+        const photoCanvas = document.getElementById('photoCanvas');
+        const centerMessage = document.getElementById('centerMessage');
+        const scrollHint = document.getElementById('scrollHint');
+
+        // State
+        let PHOTOS = []; // Will be populated dynamically
+        let dispersion = 0; // 0 = piled, 1 = fully dispersed
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let photoElements = [];
+        let photoData = [];
+
+        // Dynamically detect photos in the photos folder
+        async function detectPhotos() {
+            const photos = [];
+            const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+            for (let i = 1; i <= MAX_PHOTOS; i++) {
+                let found = false;
+
+                for (const ext of extensions) {
+                    const src = `photos/${i}.${ext}`;
+                    const exists = await checkImageExists(src);
+
+                    if (exists.success) {
+                        photos.push({
+                            src: src,
+                            width: exists.width,
+                            height: exists.height
+                        });
+                        found = true;
+                        break;
+                    }
+                }
+
+                // Stop if no image found with this number
+                if (!found) break;
+            }
+
+            return photos;
+        }
+
+        // Check if an image exists and get its dimensions
+        function checkImageExists(src) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    // Scale down large images for display
+                    let width = this.naturalWidth;
+                    let height = this.naturalHeight;
+                    const maxSize = 400;
+
+                    if (width > height && width > maxSize) {
+                        height = (height / width) * maxSize;
+                        width = maxSize;
+                    } else if (height > maxSize) {
+                        width = (width / height) * maxSize;
+                        height = maxSize;
+                    }
+
+                    resolve({ success: true, width: Math.round(width), height: Math.round(height) });
+                };
+                img.onerror = function() {
+                    resolve({ success: false });
+                };
+                img.src = src;
+            });
+        }
+
+        // Generate random dispersed positions for each photo
+        function generatePhotoData() {
+            const centerX = window.innerWidth / 2 + 100 * window.innerWidth / 100; // Center of canvas
+            const centerY = window.innerHeight / 2 + 100 * window.innerHeight / 100;
+
+            PHOTOS.forEach((photo, index) => {
+                // Random angle for dispersion direction
+                const angle = (index / PHOTOS.length) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+                // Distance from center when fully dispersed
+                const distance = 400 + Math.random() * 600;
+
+                // Starting position (small random offset for pile effect)
+                const startX = centerX + (Math.random() - 0.5) * 30;
+                const startY = centerY + (Math.random() - 0.5) * 30;
+                const startRotation = (Math.random() - 0.5) * 20;
+                const startScale = 0.3 + Math.random() * 0.1;
+
+                // End position (dispersed)
+                const endX = centerX + Math.cos(angle) * distance;
+                const endY = centerY + Math.sin(angle) * distance;
+                const endRotation = (Math.random() - 0.5) * 30;
+                const endScale = 1 + Math.random() * 0.5;
+
+                // Z-index for stacking
+                const zIndex = Math.floor(Math.random() * PHOTOS.length);
+
+                photoData.push({
+                    ...photo,
+                    startX, startY, startRotation, startScale,
+                    endX, endY, endRotation, endScale,
+                    zIndex
+                });
+            });
+        }
+
+        // Create photo elements
+        function createPhotos() {
+            generatePhotoData();
+
+            photoData.forEach((data, index) => {
+                const photoDiv = document.createElement('div');
+                photoDiv.className = 'photo';
+                photoDiv.style.width = data.width + 'px';
+                photoDiv.style.height = data.height + 'px';
+                photoDiv.style.zIndex = data.zIndex;
+
+                const img = document.createElement('img');
+                img.src = data.src;
+                img.alt = `Photo ${index + 1}`;
+                img.onerror = function() {
+                    this.outerHTML = `<div class="placeholder">Photo ${index + 1}<small>Add: ${data.src}</small></div>`;
+                };
+
+                photoDiv.appendChild(img);
+                photoCanvas.appendChild(photoDiv);
+                photoElements.push(photoDiv);
+            });
+
+            updatePhotos();
+        }
+
+        // Update photo positions based on dispersion value
+        function updatePhotos() {
+            photoData.forEach((data, index) => {
+                const el = photoElements[index];
+
+                // Interpolate between start and end positions
+                const x = lerp(data.startX, data.endX, easeOutCubic(dispersion));
+                const y = lerp(data.startY, data.endY, easeOutCubic(dispersion));
+                const rotation = lerp(data.startRotation, data.endRotation, dispersion);
+                const scale = lerp(data.startScale, data.endScale, easeOutCubic(dispersion));
+
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+                el.style.transform = `translate(-50%, -50%) rotate(${rotation}deg) scale(${scale})`;
+            });
+
+            // Show message as photos disperse
+            if (dispersion > 0.3) {
+                centerMessage.classList.add('visible');
+            } else {
+                centerMessage.classList.remove('visible');
+            }
+
+            // Enable dragging when fully dispersed
+            if (dispersion >= 1) {
+                galleryContainer.classList.add('can-drag');
+                scrollHint.textContent = 'Click and drag to explore';
+            } else {
+                galleryContainer.classList.remove('can-drag');
+                scrollHint.textContent = 'Scroll to explore';
+            }
+        }
+
+        // Update canvas position for panning
+        function updateCanvasPosition() {
+            photoCanvas.style.transform = `translate(${panX}px, ${panY}px)`;
+        }
+
+        // Utility functions
+        function lerp(start, end, t) {
+            return start + (end - start) * t;
+        }
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+
+        function clamp(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+        }
+
+        // Password handling
+        passwordInput.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                if (passwordInput.value === PASSWORD) {
+                    passwordScreen.classList.add('hidden');
+                    galleryContainer.classList.add('active');
+
+                    // Detect photos dynamically
+                    scrollHint.textContent = 'Loading photos...';
+                    PHOTOS = await detectPhotos();
+
+                    if (PHOTOS.length === 0) {
+                        scrollHint.textContent = 'No photos found. Add images to photos/ folder (1.jpg, 2.jpg, etc.)';
+                    } else {
+                        createPhotos();
+                        scrollHint.textContent = 'Scroll to explore';
+                    }
+
+                    setTimeout(() => {
+                        passwordScreen.style.display = 'none';
+                    }, 800);
+                } else {
+                    passwordError.classList.add('show');
+                    passwordInput.value = '';
+                    setTimeout(() => {
+                        passwordError.classList.remove('show');
+                    }, 2000);
+                }
+            }
+        });
+
+        // Scroll handling for dispersion
+        galleryContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+
+            if (dispersion < 1) {
+                // Control dispersion with scroll
+                const delta = e.deltaY > 0 ? 0.03 : -0.03;
+                dispersion = clamp(dispersion + delta, 0, 1);
+                updatePhotos();
+            } else {
+                // When fully dispersed, scroll can still reverse
+                if (e.deltaY < 0) {
+                    dispersion = clamp(dispersion - 0.03, 0, 1);
+                    updatePhotos();
+                }
+            }
+        }, { passive: false });
+
+        // Drag handling for panning
+        galleryContainer.addEventListener('mousedown', (e) => {
+            if (dispersion >= 1) {
+                isDragging = true;
+                dragStartX = e.clientX - panX;
+                dragStartY = e.clientY - panY;
+                galleryContainer.classList.add('dragging');
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                panX = e.clientX - dragStartX;
+                panY = e.clientY - dragStartY;
+
+                // Limit panning
+                const maxPan = 800;
+                panX = clamp(panX, -maxPan, maxPan);
+                panY = clamp(panY, -maxPan, maxPan);
+
+                updateCanvasPosition();
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            galleryContainer.classList.remove('dragging');
+        });
+
+        // Touch support
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let lastTouchY = 0;
+
+        galleryContainer.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            lastTouchY = touchStartY;
+
+            if (dispersion >= 1) {
+                isDragging = true;
+                dragStartX = touchStartX - panX;
+                dragStartY = touchStartY - panY;
+            }
+        });
+
+        galleryContainer.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+
+            if (dispersion < 1 || !isDragging) {
+                // Use vertical movement for dispersion
+                const deltaY = lastTouchY - touchY;
+                const delta = deltaY > 0 ? 0.02 : -0.02;
+
+                if (Math.abs(deltaY) > 2) {
+                    dispersion = clamp(dispersion + delta, 0, 1);
+                    updatePhotos();
+                }
+                lastTouchY = touchY;
+            } else if (isDragging) {
+                // Pan when fully dispersed
+                panX = touchX - dragStartX;
+                panY = touchY - dragStartY;
+
+                const maxPan = 800;
+                panX = clamp(panX, -maxPan, maxPan);
+                panY = clamp(panY, -maxPan, maxPan);
+
+                updateCanvasPosition();
+            }
+        }, { passive: false });
+
+        galleryContainer.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            // Regenerate positions on resize
+            photoData = [];
+            generatePhotoData();
+            updatePhotos();
+        });
+    </script>
+</body>
+</html>
